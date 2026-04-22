@@ -4,6 +4,7 @@ import Landing from "./pages/Landing";
 import Features from "./pages/Features";
 import Auth from "./pages/Auth";
 import AIMentor from "./pages/AIMentor";
+import JarvisAssistantPage from "./pages/SimpleJarvisPage";
 import StudyPlan from "./pages/StudyPlan";
 import Progress from "./pages/Progress";
 import Practice from "./pages/Practice";
@@ -16,6 +17,7 @@ function App() {
       <Route path="/features" element={<Features />} />
       <Route path="/auth" element={<Auth />} />
       <Route path="/ai-mentor" element={<AIMentor />} />
+      <Route path="/jarvis-assistant" element={<JarvisAssistantPage />} />
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/study-plan" element={<StudyPlan />} />
       <Route path="/progress" element={<Progress />} />

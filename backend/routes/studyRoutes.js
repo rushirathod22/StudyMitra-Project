@@ -7,7 +7,8 @@ const {
   updateTasks,
 } = require("../controllers/studyController");
 
-const protect = require("../middleware/authMiddleware");
+// ✅ FIXED IMPORT
+const { protect } = require("../middleware/authMiddleware");
 
 router.post("/generate-plan", protect, generateStudyPlan);
 router.get("/latest", protect, getLatestPlan);

@@ -1,6 +1,6 @@
 const token = localStorage.getItem("token");
 
-const res = await fetch("http://localhost:5000/api/study/generate-plan", {
+const res = await fetch("http://localhost:5001/api/study/generate-plan", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",

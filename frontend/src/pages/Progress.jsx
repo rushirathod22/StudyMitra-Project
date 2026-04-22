@@ -1,382 +1,412 @@
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
 import AICursor from "../components/AICursor";
-
+import { API_BASE_URL } from "../config/api";
 import {
   PieChart,
   Pie,
   Cell,
   ResponsiveContainer,
   Tooltip,
-  Legend,
 } from "recharts";
 
+const PIE_COLORS = ["#22d3ee", "#818cf8", "#34d399", "#fb923c", "#f472b6", "#a78bfa"];
+
+const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+const CustomTooltip = ({ active, payload }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white shadow-xl">
+        {payload[0].name}: <span className="font-bold text-cyan-400">{payload[0].value}%</span>
+      </div>
+    );
+  }
+  return null;
+};
+
+const StatCard = ({ label, value, color, icon, delay }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 18 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay }}
+    className="rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-sm px-6 py-5 space-y-3"
+  >
+    <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${color.bg}`}>
+      {icon}
+    </div>
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{label}</p>
+      <p className={`text-2xl font-extrabold mt-1 ${color.text}`}>{value}</p>
+    </div>
+  </motion.div>
+);
 
 export default function Progress() {
-
-  const renderLabel = ({ name, percent }) => {
-    return `${name}: ${(percent * 100).toFixed(0)}%`;
-  };
-
-  const studyDistribution = [
-    { name: "Mathematics", value: 40 },
-    { name: "Physics", value: 30 },
-    { name: "Chemistry", value: 20 },
-    { name: "Revision", value: 10 },
-  ];
-
-
-
-  const pieColors = ["#38bdf8", "#60a5fa", "#a5b4fc", "#64748b"];
-
-
-  const [view, setView] = useState("weekly"); // weekly | monthly
   const [activeSubject, setActiveSubject] = useState("All");
+  const [stats, setStats] = useState([]);
+  const [subjectPerformance, setSubjectPerformance] = useState([]);
+  const [consistency, setConsistency] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  /* ---------- DATA (DUMMY, FRONTEND-ONLY) ---------- */
-  /* ---------- DATA (DYNAMIC, LOCAL_STORAGE) ---------- */
-  const [stats, setStats] = useState([
-    { label: "Accuracy", value: "78%" },
-    { label: "Study Time", value: "14 hrs" },
-    { label: "Consistency", value: "5 days" },
-    { label: "Topics Covered", value: "12" },
-  ]);
+  const subjects = ["All", ...subjectPerformance.map((s) => s.subject)];
+
+  const studyDistribution = subjectPerformance.map((s) => ({
+    name: s.subject,
+    value: s.value,
+  }));
 
   useEffect(() => {
-    const summary = localStorage.getItem("sessionSummary");
-    if (summary) {
-      const parsed = JSON.parse(summary);
-      setStats([
-        { label: "Accuracy", value: `${parsed.accuracy}%` },
-        { label: "Session Qs", value: `${parsed.total}` },
-        { label: "Consistency", value: "5 days" },
-        { label: "Recent Topic", value: parsed.topic },
-      ]);
-    }
+    const fetchProgress = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${API_BASE_URL}/api/practice/history`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const data = await res.json();
+        const attempts = data.history || [];
+
+        let totalCorrect = 0;
+        let totalQuestions = 0;
+        const topics = new Set();
+
+        attempts.forEach((a) => {
+          totalCorrect += a.score;
+          totalQuestions += a.totalQuestions;
+          topics.add(a.topic);
+        });
+
+        const accuracy = totalQuestions
+          ? Math.round((totalCorrect / totalQuestions) * 100)
+          : 0;
+
+        if (attempts.length === 0) {
+          setStats([]);
+          setSubjectPerformance([]);
+          setConsistency([]);
+        } else {
+          setStats([
+            { label: "Accuracy", value: `${accuracy}%` },
+            { label: "Sessions", value: `${attempts.length}` },
+            { label: "Topics Covered", value: `${topics.size}` },
+            { label: "Recent Topic", value: attempts[0]?.topic || "–" },
+          ]);
+
+          const subjectMap = {};
+          attempts.forEach((a) => {
+            if (!subjectMap[a.topic]) subjectMap[a.topic] = { correct: 0, total: 0 };
+            subjectMap[a.topic].correct += a.score;
+            subjectMap[a.topic].total += a.totalQuestions;
+          });
+
+          const subjectData = Object.keys(subjectMap).map((topic) => ({
+            subject: topic,
+            value: Math.round(
+              (subjectMap[topic].correct / subjectMap[topic].total) * 100
+            ),
+          }));
+
+          setSubjectPerformance(subjectData);
+
+
+          const last7Days = Array(7).fill(false);
+          const today = new Date();
+          attempts.forEach((a) => {
+            const date = new Date(a.createdAt);
+            const diff = Math.floor((today - date) / (1000 * 60 * 60 * 24));
+            if (diff < 7) last7Days[6 - diff] = true;
+          });
+
+          setConsistency(last7Days);
+        }
+      } catch (err) {
+        console.log("Progress error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProgress();
   }, []);
 
-  const comparison = {
-    weekly: [
-      { label: "Study Hours", last: 10, current: 14 },
-      { label: "Accuracy", last: 66, current: 78 },
-      { label: "Consistency", last: 4, current: 5 },
-    ],
-    monthly: [
-      { label: "Study Hours", last: 42, current: 56 },
-      { label: "Accuracy", last: 62, current: 75 },
-      { label: "Consistency", last: 18, current: 22 },
-    ],
-  };
-
-  const subjects = ["All", "Mathematics", "Physics", "Chemistry"];
-
-  const subjectPerformance = [
-    { subject: "Mathematics", value: 75 },
-    { subject: "Physics", value: 62 },
-    { subject: "Chemistry", value: 48 },
+  const statConfig = [
+    {
+      color: { text: "text-cyan-400", bg: "bg-cyan-400/10" },
+      icon: (
+        <svg className="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      ),
+    },
+    {
+      color: { text: "text-violet-400", bg: "bg-violet-400/10" },
+      icon: (
+        <svg className="w-5 h-5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      ),
+    },
+    {
+      color: { text: "text-emerald-400", bg: "bg-emerald-400/10" },
+      icon: (
+        <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+        </svg>
+      ),
+    },
+    {
+      color: { text: "text-amber-400", bg: "bg-amber-400/10" },
+      icon: (
+        <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+        </svg>
+      ),
+    },
   ];
 
-  const consistency = [true, true, false, true, true, true, false]; // last 7 days
-
   return (
-    <div className="min-h-screen bg-[#0f172a] text-[#cbd5f5]">
+    <div className="min-h-screen bg-slate-950 text-slate-100" style={{ fontFamily: "'Inter', sans-serif" }}>
       <Navbar />
 
-      <section className="pt-32 pb-24">
-        <div className="max-w-7xl mx-auto px-6 space-y-16">
+      <section className="pt-28 pb-24 max-w-5xl mx-auto px-5 space-y-10">
 
-          {/* ================================================= */}
-          {/* HEADER + TOGGLE + EXPORT */}
-          {/* ================================================= */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div>
-              <h1 className="text-3xl font-semibold text-[#f8fafc]">
-                Progress Overview
-              </h1>
-              <p className="mt-2 text-[#94a3b8]">
-                Track how your learning is improving over time.
-              </p>
+        {/* ===== HEADER ===== */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+        >
+          <div>
+            <h1 className="text-3xl font-extrabold text-white">Progress Overview</h1>
+            <p className="text-sm text-slate-400 mt-1">Track your study performance and consistency</p>
+          </div>
+        </motion.div>
+
+        {/* ===== LOADING SKELETON ===== */}
+        {loading && (
+          <div className="grid md:grid-cols-4 gap-4">
+            {Array(4).fill(0).map((_, i) => (
+              <div key={i} className="h-28 rounded-2xl border border-slate-800 bg-slate-900/60 animate-pulse" />
+            ))}
+          </div>
+        )}
+
+        {/* ===== STAT CARDS ===== */}
+        {!loading && stats.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {stats.map((item, i) => (
+              <StatCard
+                key={i}
+                label={item.label}
+                value={item.value}
+                color={statConfig[i]?.color || { text: "text-cyan-400", bg: "bg-cyan-400/10" }}
+                icon={statConfig[i]?.icon}
+                delay={i * 0.07}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* ===== CONSISTENCY ===== */}
+        {!loading && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-sm p-6"
+          >
+            <div className="mb-4">
+              <h3 className="text-base font-semibold text-white">Study Streak</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Last 7 days activity</p>
             </div>
-
-            <div className="flex items-center gap-4">
-              {/* Toggle */}
-              <div className="flex rounded-xl border border-[#1e293b] overflow-hidden">
-                {["weekly", "monthly"].map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setView(t)}
-                    className={`px-4 py-2 text-sm transition ${view === t
-                      ? "bg-[#1e293b] text-[#f8fafc]"
-                      : "text-[#94a3b8]"
-                      }`}
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              {(consistency.length > 0 ? consistency : Array(7).fill(false)).map((active, i) => (
+                <div key={i} className="flex flex-col items-center gap-1.5">
+                  <motion.div
+                    initial={{ scale: 0.5, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.35 + i * 0.05 }}
+                    className={`h-10 w-10 rounded-xl flex items-center justify-center transition-all ${
+                      active
+                        ? "bg-cyan-400/20 border border-cyan-400/50 shadow-[0_0_10px_rgba(34,211,238,0.2)]"
+                        : "bg-slate-800/60 border border-slate-700"
+                    }`}
                   >
-                    {t === "weekly" ? "Weekly" : "Monthly"}
+                    {active ? (
+                      <svg className="w-4 h-4 text-cyan-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <div className="h-1.5 w-1.5 rounded-full bg-slate-600" />
+                    )}
+                  </motion.div>
+                  <span className="text-[10px] text-slate-500 font-medium">{DAY_LABELS[i]}</span>
+                </div>
+              ))}
+
+              <div className="ml-auto flex items-center gap-2 text-sm">
+                <span className="text-slate-400">Active days:</span>
+                <span className="font-bold text-cyan-400">
+                  {(consistency.length > 0 ? consistency : []).filter(Boolean).length}/7
+                </span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ===== SUBJECT FILTER + PERFORMANCE ===== */}
+        {!loading && subjectPerformance.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-sm p-6 space-y-5"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h3 className="text-base font-semibold text-white">Subject Performance</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Accuracy per topic across all sessions</p>
+              </div>
+
+              {/* Filter chips */}
+              <div className="flex gap-2 flex-wrap">
+                {subjects.map((sub) => (
+                  <button
+                    key={sub}
+                    onClick={() => setActiveSubject(sub)}
+                    className={`px-3 py-1 rounded-full border text-xs font-semibold transition ${
+                      activeSubject === sub
+                        ? "border-cyan-400/60 bg-cyan-400/10 text-cyan-300"
+                        : "border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                    }`}
+                  >
+                    {sub}
                   </button>
                 ))}
               </div>
-
-              {/* Export */}
-              <button className="px-4 py-2 text-sm rounded-xl border border-[#1e293b] text-[#94a3b8] hover:text-[#f8fafc]">
-                Export PDF
-              </button>
             </div>
-          </div>
 
-          {/* ================================================= */}
-          {/* OVERALL STATS */}
-          {/* ================================================= */}
-          <div className="grid md:grid-cols-4 gap-6">
-            {stats.map((item, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.08 }}
-                className="rounded-xl border border-[#1e293b] bg-[#020617] p-6"
-              >
-                <p className="text-sm text-[#94a3b8]">{item.label}</p>
-                <p className="mt-2 text-2xl font-semibold text-[#38bdf8]">
-                  {item.value}
-                </p>
-              </motion.div>
-            ))}
-          </div>
+            <div className="space-y-4">
+              {subjectPerformance
+                .filter((s) => activeSubject === "All" || s.subject === activeSubject)
+                .map((s, i) => {
+                  const color = PIE_COLORS[i % PIE_COLORS.length];
+                  return (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, x: -16 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.06 }}
+                      className="space-y-1.5"
+                    >
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium text-slate-200">{s.subject}</span>
+                        <span className="font-bold" style={{ color }}>{s.value}%</span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${s.value}%` }}
+                          transition={{ duration: 0.7, delay: 0.4 + i * 0.06 }}
+                          className="h-full rounded-full"
+                          style={{ background: color }}
+                        />
+                      </div>
+                    </motion.div>
+                  );
+                })}
+            </div>
+          </motion.div>
+        )}
 
-          {/* ================================================= */}
-          {/* PROGRESS COMPARISON */}
-          {/* ================================================= */}
+        {/* ===== PIE CHART ===== */}
+        {!loading && studyDistribution.length > 0 && (
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl border border-[#1e293b] bg-[#020617] p-8"
+            initial={{ opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.5 }}
+            className="rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-sm p-6"
           >
-            <h3 className="text-lg font-semibold text-[#f8fafc] mb-6">
-              Last {view === "weekly" ? "Week" : "Month"} vs This{" "}
-              {view === "weekly" ? "Week" : "Month"}
-            </h3>
+            <h3 className="text-base font-semibold text-white mb-0.5">Study Distribution</h3>
+            <p className="text-xs text-slate-500 mb-5">Relative accuracy across all topics</p>
 
-            <div className="space-y-5">
-              {comparison[view].map((item, i) => (
-                <div key={i}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>{item.label}</span>
-                    <span className="text-[#94a3b8]">
-                      {item.last} →{" "}
-                      <span className="text-[#38bdf8] font-medium">
-                        {item.current}
-                      </span>
+            <div className="grid sm:grid-cols-2 items-center gap-6">
+              <div className="h-[220px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={studyDistribution}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={65}
+                      outerRadius={95}
+                      paddingAngle={4}
+                      startAngle={90}
+                      endAngle={-270}
+                    >
+                      {studyDistribution.map((_, i) => (
+                        <Cell
+                          key={i}
+                          fill={PIE_COLORS[i % PIE_COLORS.length]}
+                          opacity={0.85}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Legend */}
+              <div className="flex flex-col gap-2.5">
+                {studyDistribution.map((item, i) => (
+                  <div key={i} className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}
+                      />
+                      <span className="text-sm text-slate-300 truncate max-w-[140px]">{item.name}</span>
+                    </div>
+                    <span className="text-sm font-bold" style={{ color: PIE_COLORS[i % PIE_COLORS.length] }}>
+                      {item.value}%
                     </span>
                   </div>
-
-                  <div className="h-2 rounded-full bg-[#1e293b] overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{
-                        width: `${(item.current / Math.max(item.current, item.last)) * 100}%`,
-                      }}
-                      transition={{ duration: 0.6 }}
-                      className="h-full bg-[#38bdf8]"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* ================================================= */}
-          {/* SUBJECT FILTER */}
-          {/* ================================================= */}
-          <div className="flex gap-2 flex-wrap">
-            {subjects.map((sub) => (
-              <button
-                key={sub}
-                onClick={() => setActiveSubject(sub)}
-                className={`px-4 py-1.5 rounded-full text-sm border transition ${activeSubject === sub
-                  ? "border-[#38bdf8] text-[#38bdf8]"
-                  : "border-[#1e293b] text-[#94a3b8]"
-                  }`}
-              >
-                {sub}
-              </button>
-            ))}
-          </div>
-
-          {/* ================================================= */}
-          {/* SUBJECT PERFORMANCE */}
-          {/* ================================================= */}
-          <div className="rounded-2xl border border-[#1e293b] bg-[#020617] p-8">
-            <h3 className="text-lg font-semibold text-[#f8fafc] mb-6">
-              Subject-wise Performance
-            </h3>
-
-            <div className="space-y-5">
-              {subjectPerformance
-                .filter(
-                  (s) => activeSubject === "All" || s.subject === activeSubject
-                )
-                .map((sub, i) => (
-                  <div key={i}>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>{sub.subject}</span>
-                      <span className="text-[#38bdf8]">{sub.value}%</span>
-                    </div>
-                    <div className="h-2 rounded-full bg-[#1e293b] overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${sub.value}%` }}
-                        transition={{ duration: 0.6 }}
-                        className="h-full bg-[#38bdf8]"
-                      />
-                    </div>
-                  </div>
                 ))}
-            </div>
-          </div>
-          {/* ================= STUDY TIME DISTRIBUTION ================= */}
-          {/* ================= STUDY TIME DISTRIBUTION ================= */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl border border-[#1e293b] bg-[#020617] p-8"
-          >
-            <h3 className="text-lg font-semibold text-[#f8fafc] mb-2">
-              Study Time Distribution
-            </h3>
-
-            <p className="text-sm text-[#94a3b8] mb-6">
-              How your study time is divided across subjects.
-            </p>
-
-            <div className="w-full h-[300px] relative">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-
-                  {/* PIE */}
-                  <Pie
-                    data={studyDistribution}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={70}
-                    outerRadius={110}
-                    paddingAngle={3}
-                    label={renderLabel}
-                    labelLine={false}
-                  >
-                    {studyDistribution.map((_, index) => (
-                      <Cell key={index} fill={pieColors[index]} />
-                    ))}
-                  </Pie>
-
-
-                  {/* CENTER LABEL */}
-                  <text
-                    x="50%"
-                    y="50%"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fill="#f8fafc"
-                    fontSize="14"
-                    fontWeight="600"
-                  >
-                    Study Time
-                  </text>
-
-                  <text
-                    x="50%"
-                    y="56%"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fill="#94a3b8"
-                    fontSize="12"
-                  >
-                    Distribution
-                  </text>
-
-                  {/* TOOLTIP */}
-                  <Tooltip
-                    cursor={{ fill: "transparent" }}   // remove dark hover overlay
-                    contentStyle={{
-                      backgroundColor: "#020617",
-                      border: "1px solid #1e293b",
-                      borderRadius: "10px",
-                      padding: "10px 12px",
-                      color: "#f8fafc",               // FORCE text color
-                      fontSize: "13px",
-                    }}
-                    itemStyle={{
-                      color: "#f8fafc",               // FORCE item text
-                      fontWeight: 500,
-                    }}
-                    labelStyle={{
-                      color: "#38bdf8",               // label (subject name)
-                      fontWeight: 600,
-                    }}
-                    formatter={(value, name) => [`${value}%`, name]}
-                  />
-
-
-                  {/* LEGEND */}
-                  <Legend
-                    verticalAlign="bottom"
-                    iconType="circle"
-                    formatter={(value) => (
-                      <span style={{ color: "#cbd5f5", fontSize: "13px" }}>
-                        {value}
-                      </span>
-                    )}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              </div>
             </div>
           </motion.div>
+        )}
 
-
-          {/* ================================================= */}
-          {/* CONSISTENCY */}
-          {/* ================================================= */}
-          <div className="rounded-2xl border border-[#1e293b] bg-[#020617] p-8">
-            <h3 className="text-lg font-semibold text-[#f8fafc] mb-4">
-              Consistency (Last 7 Days)
-            </h3>
-
-            <div className="flex gap-3">
-              {consistency.map((done, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: i * 0.05 }}
-                  className={`w-6 h-6 rounded-full ${done ? "bg-[#38bdf8]" : "bg-[#1e293b]"
-                    }`}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* ================================================= */}
-          {/* AI INSIGHT */}
-          {/* ================================================= */}
+        {/* ===== EMPTY STATE ===== */}
+        {!loading && stats.length === 0 && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl border border-[#38bdf8]/30 bg-[#020617] p-8"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center justify-center py-24 text-center space-y-4"
           >
-            <h3 className="text-lg font-semibold text-[#f8fafc]">
-              AI Progress Insight
-            </h3>
-            <p className="mt-3 text-[#94a3b8] max-w-4xl">
-              Your study time and accuracy improved significantly compared to last
-              {view === "weekly" ? " week" : " month"}. However, Chemistry remains
-              weaker than other subjects. Short daily revision sessions could help
-              stabilize performance.
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-800 border border-slate-700">
+              <svg className="w-7 h-7 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            </div>
+            <p className="text-lg font-semibold text-white">No progress data yet</p>
+            <p className="text-sm text-slate-400 max-w-xs">
+              Complete a practice session to see your performance stats, subject scores, and consistency tracking here.
             </p>
+            <a
+              href="/practice"
+              className="mt-2 inline-flex items-center gap-2 rounded-2xl bg-cyan-400 px-6 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-300"
+            >
+              Start Practicing →
+            </a>
           </motion.div>
+        )}
 
-        </div>
       </section>
+
       <AICursor />
     </div>
   );
