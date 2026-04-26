@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import StydyMitra from "../assets/studymitra.png"
+import StydyMitra from "../assets/StudyMitra.png"
 import {
   FaBars,
   FaCheck,
