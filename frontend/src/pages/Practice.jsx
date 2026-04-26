@@ -36,26 +36,17 @@ export default function Practice() {
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${API_BASE_URL}/api/practice/generate`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  },
-  body: JSON.stringify({
-    topic,
-    difficulty: level.charAt(0).toUpperCase() + level.slice(1),
-    count,
-  }),
-});
-
-// ✅ Check response first
-if (!res.ok) {
-  const text = await res.text();
-  console.error("Server Error:", text);
-  throw new Error("API failed");
-}
-
-const data = await res.json();
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          topic,
+          difficulty: level.charAt(0).toUpperCase() + level.slice(1),
+          count,
+        }),
+      });
 
       const data = await res.json();
 

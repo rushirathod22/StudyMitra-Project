@@ -7,8 +7,7 @@ import Robot3D from "../components/Robot3D";
 import RobotAssistant from "../components/RobotAssistant";
 import AICursor from "../components/AICursor";
 import { saveAuth } from "../utils/auth";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
+import { API_BASE_URL } from "../config/api";
 
 const slideVariants = {
   enter: (dir) => ({ x: dir > 0 ? 40 : -40, opacity: 0 }),

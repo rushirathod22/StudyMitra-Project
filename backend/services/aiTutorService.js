@@ -2,6 +2,14 @@ const axios = require("axios");
 
 const generateAIResponse = async (prompt, history = []) => {
   try {
+    if (!process.env.GROQ_API_KEY) {
+      console.log("❌ GROQ_API_KEY is missing from environment variables!");
+      throw new Error("AI Configuration Error: Missing API Key");
+    }
+
+    // Log key status for debugging (SAFE: only first 5 chars)
+    console.log(`📡 Calling Groq with key starting with: ${process.env.GROQ_API_KEY.substring(0, 5)}...`);
+
     const response = await axios.post(
       "https://api.groq.com/openai/v1/chat/completions",
       {
@@ -20,7 +28,7 @@ const generateAIResponse = async (prompt, history = []) => {
       },
       {
         headers: {
-          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+          Authorization: `Bearer ${process.env.GROQ_API_KEY.trim()}`,
           "Content-Type": "application/json",
         },
       }
