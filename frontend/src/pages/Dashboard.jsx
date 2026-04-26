@@ -230,7 +230,7 @@ export default function Dashboard() {
                     Start Practice →
                   </Link>
                   <Link
-                    to="/jarvis"
+                    to="/jarvis-assistant?"
                     className="rounded-xl border border-slate-700 bg-slate-950/50 px-5 py-3 text-sm font-bold text-slate-200 transition hover:border-cyan-400 hover:text-white"
                   >
                     Ask Studymitra Voice
@@ -391,7 +391,7 @@ export default function Dashboard() {
                   <FaArrowRight className="text-slate-600 group-hover:text-cyan-400 transition" />
                 </Link>
 
-                <Link to="/jarvis" className="group flex items-center justify-between rounded-[1.25rem] border border-slate-800 bg-slate-900/80 p-5 transition hover:border-slate-600 hover:bg-slate-800">
+                <Link to="/jarvis-assistant?mode=revise" className="group flex items-center justify-between rounded-[1.25rem] border border-slate-800 bg-slate-900/80 p-5 transition hover:border-slate-600 hover:bg-slate-800">
                   <div className="flex items-center gap-4">
                     <span className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-400/10 text-rose-400 text-lg">🎙️</span>
                     <div>

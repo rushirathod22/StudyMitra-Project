@@ -2,8 +2,12 @@ const axios = require("axios");
 
 const callGroq = async (prompt) => {
   try {
-    if (!process.env.GROQ_API_KEY) {
+    // Check for common naming variations
+    const apiKey = process.env.GROQ_API_KEY || process.env.GROQ_API || process.env.GROQ_KEY;
+
+    if (!apiKey) {
       console.log("❌ GROQ_API_KEY is missing from environment variables!");
+      console.log("Available keys:", Object.keys(process.env).filter(k => k.toLowerCase().includes("api") || k.toLowerCase().includes("key")).slice(0, 5));
       throw new Error("Groq API Key missing");
     }
 
@@ -20,7 +24,7 @@ const callGroq = async (prompt) => {
       },
       {
         headers: {
-          Authorization: `Bearer ${process.env.GROQ_API_KEY.trim()}`,
+          Authorization: `Bearer ${apiKey.trim()}`,
           "Content-Type": "application/json"
         }
       }
