@@ -721,7 +721,7 @@ export default function AIMentor() {
               {isThinking ? (
                 <div className="py-4 w-full flex gap-4 text-slate-300">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-400/20 text-xs font-bold text-cyan-300 mt-0.5 animate-pulse">
-                    AI
+                    SM
                   </div>
                   <div className="text-[15px] text-slate-400 mt-1">
                     Thinking...
