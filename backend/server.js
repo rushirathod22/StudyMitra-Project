@@ -22,9 +22,15 @@ app.use("/api/ai", aiRoutes)
 app.use("/api/chat", chatRoutes);
 app.use("/api/practice", require("./routes/practiceRoutes"));
 // DB connection
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB Connected ✅"))
-  .catch((err) => console.log(err));
+if (!process.env.MONGO_URI) {
+  console.error("❌ MONGO_URI is missing from environment variables!");
+} else {
+  mongoose.connect(process.env.MONGO_URI)
+    .then(() => console.log("MongoDB Connected ✅"))
+    .catch((err) => {
+      console.error("❌ MongoDB Connection Error:", err.message);
+    });
+}
 
 // test route
 app.get("/", (req, res) => {
